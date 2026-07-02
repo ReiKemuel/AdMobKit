@@ -17,19 +17,56 @@ Covers three ad formats — **banner**, **rewarded**, and **app-open** — with 
 
 ## Install
 
-Add the package to your project in Xcode:
+> **Heads-up before you start:** the Google Mobile Ads SDK will hard-crash your app on the first ad-manager touch if you skip Step 2 below (setting `GADApplicationIdentifier` in your Info.plist). There is no graceful fallback — the SDK calls `abort()` and terminates the process. Every consumer trips on this once. Follow all four steps in order and you're safe.
 
-`File > Add Package Dependencies…` → paste this repo's URL → `Add Package`.
+### 1. Add the package to your Xcode project
 
-Or edit your `Package.swift`:
+In Xcode: **File → Add Package Dependencies…** → paste this repo's URL → **Add Package**.
+
+On the "Choose Package Products" screen that appears next, **make sure your app target's checkbox is ticked** in the "Add to Target" column. If you skip that, Xcode downloads the package but doesn't link it, and you'll get `No such module 'AdMobKit'` at build time. Common gotcha.
+
+Or, if you manage dependencies in `Package.swift`:
 
 ```swift
 .package(url: "https://github.com/ReiKemuel/AdMobKit.git", from: "1.0.0")
 ```
 
-Then in your app's `@main` type:
+### 2. Set `GADApplicationIdentifier` in your Info.plist  ← don't skip this
+
+This is the step that crashes your app if you miss it. AdMob refuses to initialize without a valid app-ID key present in the target's Info.plist.
+
+**Xcode 15+ (no separate Info.plist file — settings are inline on the target):**
+
+1. Click your project in the navigator → select your app target
+2. Open the **Info** tab
+3. Hover over any row → click the **+** button that appears
+4. Enter these three values on the new row:
+   - **Key:** `GADApplicationIdentifier`
+   - **Type:** `String`
+   - **Value:** your AdMob App ID (see below)
+
+**Older Xcode / traditional Info.plist file:**
+
+Add these two lines inside the top-level `<dict>` of your `Info.plist`:
+
+```xml
+<key>GADApplicationIdentifier</key>
+<string>ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX</string>
+```
+
+**Which App ID to use:**
+
+- **For local dev / test builds:** use Google's public test ID → `ca-app-pub-3940256099942544~1458002511`. Safe to commit; will never charge real money or trigger policy enforcement.
+- **Before you ship to the App Store:** swap in your real AdMob App ID from the [AdMob console](https://apps.admob.com/) → Apps → your app → App settings. Shipping with the test ID means zero real revenue and Google may flag the app.
+
+Note the `~` tilde separator — that's the App ID format. Ad unit IDs (which `AdPlacement.swift` handles for you) use `/` instead. They are different strings and are not interchangeable.
+
+### 3. Initialize the SDK at launch
+
+In your app's `@main` type, call `MobileAds.shared.start()` before any ad managers are touched:
 
 ```swift
+import SwiftUI
 import GoogleMobileAds
 
 @main
@@ -37,11 +74,31 @@ struct MyApp: App {
     init() {
         MobileAds.shared.start(completionHandler: nil)
     }
-    // ...
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
 }
 ```
 
-See [`Examples/`](Examples/) for a working SwiftUI shell.
+### 4. Use the managers
+
+`import AdMobKit` where you need banner / rewarded / app-open ads. See [`Examples/`](Examples/) for a working SwiftUI shell exercising all three formats.
+
+---
+
+## Verifying it works
+
+Build and run. If you configured the plist correctly, you'll see logs like:
+
+```
+<Google> To get test ads on this device, set:
+GADMobileAds.sharedInstance().requestConfiguration.testDeviceIdentifiers = @[ @"..." ];
+```
+
+If instead the app crashes on launch with `The Google Mobile Ads SDK was initialized without an application ID`, you skipped Step 2 or typed the key wrong. Recheck the spelling (`GADApplicationIdentifier` — exact case) and that the value is set on the correct target.
 
 ---
 
