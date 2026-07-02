@@ -63,16 +63,16 @@ Note the `~` tilde separator — that's the App ID format. Ad unit IDs (which `A
 
 ### 3. Initialize the SDK at launch
 
-In your app's `@main` type, call `MobileAds.shared.start()` before any ad managers are touched:
+In your app's `@main` type, call `AdMobKit.start()` before any ad managers are touched. This is a thin convenience wrapper around `MobileAds.shared.start()` — using it means you don't have to link `GoogleMobileAds` directly in the app target.
 
 ```swift
 import SwiftUI
-import GoogleMobileAds
+import AdMobKit
 
 @main
 struct MyApp: App {
     init() {
-        MobileAds.shared.start(completionHandler: nil)
+        AdMobKit.start()
     }
 
     var body: some Scene {
@@ -85,7 +85,7 @@ struct MyApp: App {
 
 ### 4. Use the managers
 
-`import AdMobKit` where you need banner / rewarded / app-open ads. See [`Examples/`](Examples/) for a working SwiftUI shell exercising all three formats.
+`import AdMobKit` where you need banner / rewarded / app-open ads. See **[`Examples/DemoApp/`](Examples/DemoApp/)** for a runnable Xcode project that exercises all three ad formats plus the [TwoTierPremiumAccess](https://github.com/ReiKemuel/TwoTierPremiumAccess) integration end-to-end.
 
 ---
 
@@ -156,7 +156,7 @@ AdMob's policy prohibits "back-to-back" full-screen ads. If a user watches a rew
 The obvious fix is to suppress app-open ads for the entire ad-unlock window (however long you granted the reward for). I did not do that. In `AppOpenAdManager`:
 
 ```swift
-private let minIntervalBetweenAds = TimeInterval(120)  // 2 min
+public var minIntervalBetweenAds: TimeInterval = 120  // 2 min (tune during dev)
 
 func showAdIfAvailable() {
     if MockSubscriptionStore.shared.isSubscribed { return }
@@ -198,6 +198,51 @@ public enum RewardedLifecycleEvent: Equatable {
 ```
 
 Delegate methods push `adPhase = .loaded` / `.impression` / `.reward(amount:)` on the `@Published` property. Consumers subscribe via Combine. When it's time to log to Crashlytics as non-fatal errors (or send to your analytics vendor), you switch on the enum — no stringly-typed matching.
+
+---
+
+## Using with [TwoTierPremiumAccess](https://github.com/ReiKemuel/TwoTierPremiumAccess)
+
+AdMobKit and TwoTierPremiumAccess are architecturally independent — neither package depends on the other, and you can consume either one alone. In a real app, they compose via a small bridge in the view or app layer.
+
+The pattern: when AdMobKit's `MockSubscriptionStore.isAdUnlocked` flips true (which happens automatically when a rewarded ad completes), call `PremiumAccessManager.grantAdUnlock()` to activate the two-tier premium pipeline.
+
+```swift
+import AdMobKit
+import TwoTierPremiumAccess
+
+struct ContentView: View {
+    @StateObject private var subs = MockSubscriptionStore.shared
+    @StateObject private var access = PremiumAccessManager.shared
+
+    var body: some View {
+        // ... your UI ...
+        .onChange(of: subs.isAdUnlocked) { _, newValue in
+            if newValue {
+                access.grantAdUnlock()
+            }
+        }
+    }
+}
+```
+
+That's the whole integration. Four lines. See [`Examples/DemoApp/`](Examples/DemoApp/) for a runnable Xcode project that exercises this end-to-end — watch a rewarded test ad, watch the bridge fire, watch `hasPremiumAccess` derive from the CombineLatest pipeline in real time.
+
+---
+
+## Debug knobs
+
+Two properties on `AppOpenAdManager` are `public var` so you can tune them during development or per-environment:
+
+```swift
+AppOpenAdManager.shared.minIntervalBetweenAds = 5    // seconds; default 120
+AppOpenAdManager.shared.expirationInSeconds = 60     // seconds; default 3600 * 4
+```
+
+- **`minIntervalBetweenAds`** — how long to enforce between successive app-open ad shows. Default 120s matches AdMob's back-to-back policy floor. Set to 5s during development to test rapid ad flow without waiting two minutes; do not push below AdMob's policy floor in production.
+- **`expirationInSeconds`** — how long a loaded app-open ad is considered fresh. Default 4 hours matches Google's server-side validity window; setting this higher in production will cause `showAdIfAvailable()` to skip because the ad server rejects the presentation.
+
+Not tunable (intentional): `bannerCache` in `BannerAdManager` — always cache-per-placement. `RewardedAdManager` has no cooldown — rewarded ads have no back-to-back policy issue since the user opts in.
 
 ---
 
