@@ -16,8 +16,15 @@ public final class AppOpenAdManager: NSObject, ObservableObject {
     var lastTimeShown: Date?
     private var loadTime: Date?
 
-    private let minIntervalBetweenAds = TimeInterval(120)      // 2 min
-    private let expirationInSeconds = TimeInterval(3600 * 4)   // 4 h
+    /// Minimum seconds between successive app-open ad presentations.
+    /// Default: 120s. Set lower (e.g. 5s) during development to test rapid ad flow;
+    /// keep near AdMob's back-to-back policy floor in production.
+    public var minIntervalBetweenAds: TimeInterval = 120
+
+    /// How long a loaded ad is considered fresh before it's re-fetched.
+    /// Default: 4 hours — Google's own app-open ad validity window. Do not raise
+    /// above this in production; the ad-server will reject the show call.
+    public var expirationInSeconds: TimeInterval = 3600 * 4
 
     @Published public var adPhase: FullScreenLifecycleEvent = .idle
 
