@@ -11,7 +11,7 @@ public enum AdPlacement: Int64 {
     case homeBanner = 0
     case detailBanner = 1
     case settingsBanner = 2
-    case appOpenAd = 3/Users/reicordero/Documents/Content
+    case appOpenAd = 3
     case rewardedAd = 4
 
     public var adUnitID: String {
