@@ -156,7 +156,7 @@ Delegate methods push `adPhase = .loaded` / `.impression` / `.reward(amount:)` o
 
 ## About
 
-Written by me, [Rei Kemuel Cordero](https://github.com/ReiKemuel), while shipping [Ambio](https://apps.apple.com/us/app/ambio-sleep-focus-sounds/id6749637478). I own the monetization layer of that app; the code here is the shape it takes after one production shipping cycle and some code review.
+Written by me, [Rei Kemuel Cordero](https://github.com/ReiKemuel), while shipping [Ambio](https://apps.apple.com/us/app/ambio-sleep-focus-sounds/id6749637478). I own the monetization layer of the app; the code here is the shape it takes after one production shipping cycle and some code review.
 
 If something looks wrong — patterns you'd change, edge cases I missed, iOS 18 APIs I should be using — open an issue. I'm still growing into the platform and I take review well.
 
